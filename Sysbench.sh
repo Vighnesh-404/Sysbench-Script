@@ -131,7 +131,7 @@ AVAILABLE_SPACE=$(df --output=avail /DNIF | tail -n 1)
 AVAILABLE_SPACE_GB=$((AVAILABLE_SPACE / 1024 / 1024))
 
 if [ $AVAILABLE_SPACE_GB -lt 150 ]; then
-    echo "Error: Not enough disk space available. At least 150GB is required. Exiting."
+    echo "\nError: Not enough disk space available. At least 150GB is required. Exiting.\n"
     exit 1
 fi
 
