@@ -54,19 +54,34 @@ STEP=$((STEP + 1))
 progress_bar $STEP $TOTAL_STEPS
 
 log_section "Sysbench Installation Check"
-if ! command -v sysbench &>/dev/null; then
-    log_result "Sysbench not found. Installing..."
-    sudo apt-get update -y >/dev/null 2>&1
-    sudo apt-get install -y sysbench >/dev/null 2>&1
-    if command -v sysbench &>/dev/null; then
-        log_result "Sysbench installed successfully."
+if ! command -v sysbench &> /dev/null; then
+    echo -e "\nSysbench not found. Attempting to install..."
+
+    # Detect OS
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
     else
-        log_result "Sysbench installation failed. Exiting."
-        echo -e "\nInstallation failed. Exiting."
-        exit 1
+        OS=$(uname -s)
     fi
+
+    case "$OS" in
+        ubuntu|debian)
+            echo "Detected OS: $OS"
+            sudo apt update && sudo apt install -y sysbench
+            ;;
+        rhel|centos)
+            echo "Detected OS: $OS"
+            sudo yum install -y epel-release
+            sudo yum install -y sysbench
+            ;;
+        *)
+            echo "Unsupported OS: $OS. Please install sysbench manually."
+            exit 1
+            ;;
+    esac
 else
-    log_result "Sysbench is already installed."
+    echo -e "\nSysbench is already installed.\n"
 fi
 
 # Step 2: CPU Test (1 thread)
