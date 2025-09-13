@@ -2,7 +2,7 @@
 
 # Check if script is executed in /DNIF directory
 if [[ $(pwd) != "/DNIF" ]]; then
-    echo "Error: This script must be executed in the /DNIF directory. Exiting."
+    echo -e "\nError: This script must be executed in the /DNIF directory. Exiting.\n"
     exit 1
 fi
 
@@ -19,12 +19,12 @@ progress_bar() {
     printf "\r["
     printf "%0.s#" $(seq 1 $filled)
     printf "%0.s-" $(seq 1 $empty)
-    printf "] %d%%" $percent
+    printf "] %d%% " $percent
 }
 
-# Prompt for output file
-read -p "Enter the name of the output file (without extension): " OUTPUT_FILE
-OUTPUT_FILE="${OUTPUT_FILE}.txt"
+# Auto-generate output file name with date
+OUTPUT_FILE="SysbenchReport-$(date +'%d%m%y').txt"
+echo "Results will be saved to $OUTPUT_FILE"
 
 # Initialize output file with headers
 cat > "$OUTPUT_FILE" << EOF
@@ -55,7 +55,7 @@ progress_bar $STEP $TOTAL_STEPS
 
 log_section "Sysbench Installation Check"
 if ! command -v sysbench &> /dev/null; then
-    echo -e "\nSysbench not found. Attempting to install..."
+    echo -e "\nSysbench not found. Attempting to install...\n"
 
     # Detect OS
     if [ -f /etc/os-release ]; then
@@ -67,21 +67,30 @@ if ! command -v sysbench &> /dev/null; then
 
     case "$OS" in
         ubuntu|debian)
-            echo "Detected OS: $OS"
+            echo -e "\nDetected OS: $OS\n"
             sudo apt update && sudo apt install -y sysbench
             ;;
         rhel|centos)
-            echo "Detected OS: $OS"
+            echo -e "\nDetected OS: $OS\n"
             sudo yum install -y epel-release
             sudo yum install -y sysbench
             ;;
         *)
-            echo "Unsupported OS: $OS. Please install sysbench manually."
+            echo -e "\nUnsupported OS: $OS. Please install sysbench manually.\n"
             exit 1
             ;;
     esac
 else
     echo -e "\nSysbench is already installed.\n"
+fi
+
+# Disk space check early (needs at least 150GB free)
+AVAILABLE_SPACE=$(df --output=avail /DNIF | tail -n 1)
+AVAILABLE_SPACE_GB=$((AVAILABLE_SPACE / 1024 / 1024))
+
+if [ $AVAILABLE_SPACE_GB -lt 150 ]; then
+    echo -e "\nError: Not enough disk space available. At least 150GB is required. Exiting.\n"
+    exit 1
 fi
 
 # Step 2: CPU Test (1 thread)
@@ -140,15 +149,6 @@ log_result "Memory Throughput (MiB/sec): $MEMORY_MB_8"
 STEP=$((STEP + 1))
 progress_bar $STEP $TOTAL_STEPS
 log_section "File I/O Test"
-
-# Check if there is enough space (150GB) before running the test
-AVAILABLE_SPACE=$(df --output=avail /DNIF | tail -n 1)
-AVAILABLE_SPACE_GB=$((AVAILABLE_SPACE / 1024 / 1024))
-
-if [ $AVAILABLE_SPACE_GB -lt 150 ]; then
-    echo "\nError: Not enough disk space available. At least 150GB is required. Exiting.\n"
-    exit 1
-fi
 
 # Execute prepare command
 FILEIO_PREPARE=$(sysbench --test=fileio --file-total-size=150G prepare 2>&1)
